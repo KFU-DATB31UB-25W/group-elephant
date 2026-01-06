@@ -1,0 +1,273 @@
+% !TEX TS-program = pdflatex
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue,
+  citecolor=blue
+}
+
+\title{Network-Based Failure Detection in SECOM\\
+\large Proposal: One Network Research Question  + Separate Decision-Tree Module}
+\author{Elefant (4 students)}
+\date{December 2025}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We propose a reproducible data-science software project for failure detection on the SECOM dataset.
+The project is centered around a single network research question (R1): identifying feature communities in a feature-correlation network that are most strongly associated with failures.
+We then connect these network-derived communities to an interpretable decision-tree module (kept separate from R1), which provides rule-based explanations and visualization-oriented reporting.
+Beyond modelling, we focus on software engineering deliverables: packaging, testing, CI, documentation, and a devlog describing collaboration and responsibilities.
+\end{abstract}
+
+\tableofcontents
+
+\section{Project Type and Scope}
+\subsection{Category Fit}
+This project primarily fits the \textbf{interactive visualization} category because the end product will generate network and decision-tree visual analytics and (optionally) an interactive dashboard.
+Secondarily, it includes \textbf{data quality tooling} (missingness reports, feature filtering checks) to support reliable analysis.
+
+\subsection{Scope Decisions}
+To keep the project focused and feasible:
+\begin{itemize}[leftmargin=2em]
+  \item We keep exactly one network research question (R1) and design the network analysis around it.
+  \item Decision trees are included as a separate modelling/explanation module, not as additional network research questions.
+  \item We will prefer robust, interpretable steps over maximally complex modelling.
+\end{itemize}
+
+\section{Dataset and Problem Setting}
+\subsection{Data}
+Let $X \in \mathbb{R}^{N \times d}$ be the feature matrix and $y \in \{-1,1\}^N$ the labels.
+SECOM contains $N=1567$ examples with $d=590$ real-valued features. The label indicates passing ($y=-1$) versus failing ($y=1$).
+Failures are rare: 104 failing examples vs.\ 1463 passing examples ($\approx 6.6\%$ failures), making this an imbalanced classification problem.
+
+\subsection{Key Challenges}
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{Imbalance:} metrics and model selection must emphasize failure detection under rarity.
+  \item \textbf{Missing values:} non-uniform missingness across features requires careful preprocessing.
+  \item \textbf{High dimensionality and correlation:} many correlated features motivate grouping/aggregation.
+\end{itemize}
+
+\subsection{Preprocessing Plan (Leakage-Safe)}
+All preprocessing steps are performed inside cross-validation folds:
+\begin{itemize}[leftmargin=2em]
+  \item alignment checks between \texttt{secom.data} and \texttt{secom\_labels.data},
+  \item remove extremely sparse features (e.g.\ missing rate $> 90\%$),
+  \item median imputation per feature (fit on train fold only),
+  \item standardization to zero mean/unit variance (fit on train fold only).
+\end{itemize}
+
+\section{Network Model}
+\subsection{Feature Correlation Network Construction}
+We build a feature network $G_{\mathrm{feat}} = (V_{\mathrm{feat}}, E_{\mathrm{feat}})$:
+each node corresponds to one feature (one column of $X$).
+
+Let $R \in \mathbb{R}^{d \times d}$ be the empirical correlation matrix with entries
+\[
+R_{kl} = \mathrm{corr}(X_{\cdot k}, X_{\cdot l}).
+\]
+We define a weighted adjacency matrix $A$ via thresholding:
+\[
+A_{kl} =
+\begin{cases}
+|R_{kl}|, & \text{if } |R_{kl}| > \tau,\\
+0, & \text{otherwise},
+\end{cases}
+\]
+where $\tau>0$ is a correlation threshold.
+(Optionally, we will include a sensitivity check using a feature k-NN construction based on strongest correlations.)
+
+\subsection{Community Detection}
+We apply a modularity-based community detection method (e.g.\ Louvain/Leiden) to obtain a partition
+\[
+\mathcal{C}=\{C_1,\dots,C_m\}
+\]
+of the feature nodes into communities, interpreted as data-driven feature groups.
+
+\section{Single Network Research Question}
+\subsection*{Which feature communities are most strongly associated with failing examples?}
+\textbf{Goal.} Identify communities of strongly correlated features whose aggregated behaviour differs between failing and passing examples, and quantify their usefulness for failure detection.
+
+\subsection{Community-Level Representations}
+For each community $C_j \in \mathcal{C}$, we compute a community summary per example $i$.
+We will implement at least two options:
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{Community mean:}
+  \[
+  \mu_{ij}=\frac{1}{|C_j|}\sum_{k\in C_j} X_{ik}.
+  \]
+  \item \textbf{Community PC1 score:} compute the first principal component on the submatrix
+  $X_{\cdot, C_j}$ and use the score of example $i$ along PC1.
+\end{itemize}
+
+\subsection{Association, Ranking, and Robustness}
+We will rank communities by how strongly they connect to failures:
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{Separation analysis:} compare distributions of $\mu_{ij}$ / PC1 scores for $y=1$ vs.\ $y=-1$
+  (differences in means/medians + uncertainty estimates).
+  \item \textbf{Predictive utility:} train a simple classifier (e.g.\ logistic regression) on community features
+  and measure performance using stratified CV.
+  \item \textbf{Significance check (optional):} permutation test by shuffling $y$ and recomputing ranks.
+  \item \textbf{Stability:} vary $\tau$ (and/or random seeds/resolution for community detection) and evaluate
+  whether the top-ranked communities remain stable.
+\end{itemize}
+
+\subsection{Planned Network Outputs (No Figures in Proposal)}
+The final report/repository will generate:
+\begin{itemize}[leftmargin=2em]
+  \item feature network visualization with community colouring,
+  \item community statistics (sizes, within/between connectivity),
+  \item top-$K$ community separation plots (fail vs.\ pass distributions),
+  \item stability plots for rankings under changes in $\tau$ / algorithm randomness.
+\end{itemize}
+
+\section{Decision Trees Module }
+This module is \emph{not} a second network research question. It is an interpretable modelling layer that:
+\begin{itemize}[leftmargin=2em]
+  \item turns community-level signals from R1 into human-readable decision rules,
+  \item provides explainability artifacts (decision paths, leaf risks),
+  \item supports visualization-focused reporting and a baseline comparison.
+\end{itemize}
+
+\subsection{How It Connects Back to the Network Part}
+The connection is made through the \textbf{input representation}:
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{Primary tree input: network-derived features.}
+  Each example is represented by a vector of community summaries
+  (e.g.\ all $\mu_{ij}$ or the top-$K$ communities ranked by R1).
+  \item \textbf{Interpretation loop: tree splits map to communities.}
+  If the tree repeatedly splits on community $C_j$, we interpret that as evidence that this
+  \emph{community as a graph object} is decision-relevant. Explanations can then reference:
+  (i) the split rule in community-score space and (ii) the underlying community members (features).
+\end{itemize}
+
+\subsection{Two Complementary Tree Experiments}
+We will run two experiments to evaluate whether the network summaries help:
+\begin{enumerate}[leftmargin=2.2em]
+  \item \textbf{Decision tree on community features.}
+  Inputs: community means and/or PC1 scores, especially top-$K$ communities from R1.
+  Goal: compact, interpretable rules on a low-dimensional representation.
+  \item \textbf{Decision tree on a baseline raw-feature subset.}
+  Inputs: a small subset of original features selected by simple filtering/screening.
+  Goal: compare explainability and performance against the network-derived representation.
+\end{enumerate}
+
+\subsection{Imbalance-Aware Tree Design}
+Because failures are rare:
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{Class weighting / cost sensitivity:} emphasize recall for the failure class.
+  \item \textbf{Regularization:} restrict depth and leaf size; optionally cost-complexity pruning.
+  \item \textbf{Threshold-aware reporting:} report PR curves and error trade-offs focusing on false negatives.
+\end{itemize}
+
+\subsection{Planned Decision-Tree Outputs (No Figures in Proposal)}
+The final report/repository will generate:
+\begin{itemize}[leftmargin=2em]
+  \item tree plot (pruned/unpruned) with node counts and class proportions,
+  \item leaf-level risk summary (failure rate per leaf, samples per leaf),
+  \item feature importance (impurity-based; permutation importance optionally),
+  \item confusion matrix and error analysis (especially false negatives),
+  \item ROC/PR curves (PR emphasized),
+  \item decision-path explanations for selected failing examples (rule chain).
+\end{itemize}
+
+\section{Evaluation Protocol}
+\subsection{Cross-Validation}
+We use stratified $k$-fold cross-validation with $k\in\{5,10\}$ to preserve the fail/pass ratio in each fold.
+
+\subsection{Metrics}
+We report:
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{PR-AUC} (primary, due to class imbalance),
+  \item ROC-AUC,
+  \item F1-score (with stated threshold),
+  \item confusion matrix (interpretable error trade-offs).
+\end{itemize}
+
+\subsection{Robustness Checks}
+We test sensitivity to:
+\begin{itemize}[leftmargin=2em]
+  \item correlation threshold $\tau$ (or kNN alternative) for network construction,
+  \item community detection randomness/resolution,
+  \item community representation (mean vs.\ PC1),
+  \item number $K$ of communities used as decision-tree input.
+\end{itemize}
+
+\section{Software Deliverables}
+\subsection{Repository Deliverables}
+We will deliver a best-practice repository including:
+\begin{itemize}[leftmargin=2em]
+  \item package-style metadata (e.g.\ \texttt{pyproject.toml}),
+  \item a clean \texttt{.gitignore} and no committed caches/secrets,
+  \item tests (with mock/small data) run in CI on pushes,
+  \item documentation: install/test/use instructions + a minimal reference manual
+        (one-line summaries for public functions/classes),
+  \item \texttt{LICENSE.md} and \texttt{CONTRIBUTING.md},
+  \item contribution through pull requests with reviews; protected main branch.
+\end{itemize}
+
+\subsection{Planned Package Structure (High Level)}
+\begin{itemize}[leftmargin=2em]
+  \item \texttt{secomnet/data/}: loading, preprocessing, data-quality checks.
+  \item \texttt{secomnet/network/}: correlation computation, graph build, community detection.
+  \item \texttt{secomnet/features/}: community feature computation (means, PC1 scores).
+  \item \texttt{secomnet/models/}: decision trees (and optional RF), training and evaluation.
+  \item \texttt{secomnet/viz/}: plot generation entry points (figures produced later).
+  \item \texttt{secomnet/cli.py}: command-line interface to run pipelines end-to-end.
+\end{itemize}
+
+\section{Work Plan for Four People}
+Each member leads one work package (WP) and contributes reviews/PRs to others.
+
+\subsection{Work Packages and Responsibilities}
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{WP1: Data + Pipeline Lead (Member A).}
+  Data loading, preprocessing, leakage-safe CV wrappers, configuration, CLI skeleton.
+  \item \textbf{WP2: Network + R1 Lead (Member B).}
+  Build $G_{\mathrm{feat}}$, implement community detection, compute community representations,
+  implement ranking/stability for R1.
+  \item \textbf{WP3: Decision Trees Lead (Member C).}
+  Implement both tree experiments, imbalance-aware training/pruning, evaluation summaries,
+  and explainability artifacts (decision paths, leaf risk tables).
+  \item \textbf{WP4: Visualization + Infrastructure Lead (Member D).}
+  Plot export pipeline and optional dashboard skeleton, CI setup, documentation scaffolding,
+  repository hygiene and release preparation.
+\end{itemize}
+
+\subsection{Collaboration Rules (Planned)}
+\begin{itemize}[leftmargin=2em]
+  \item Each student submits at least one PR and reviews at least one PR.
+  \item Core features (network build, R1 ranking, tree training/eval) must be merged via reviewed PRs.
+  \item Shared coding conventions: formatting/linting, testing style, and a unified config format.
+\end{itemize}
+
+\section{Timeline and Milestones (Proposal-Level)}
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{Milestone 1 (spec approval):} final project specification ready for lecturer approval.
+  \item \textbf{Milestone 2 (core pipeline):} end-to-end run: load $\rightarrow$ preprocess $\rightarrow$ build network $\rightarrow$ communities $\rightarrow$ community features.
+  \item \textbf{Milestone 3 (R1 results):} ranked communities + stability checks.
+  \item \textbf{Milestone 4 (trees + comparison):} decision-tree experiments completed and evaluated.
+  \item \textbf{Milestone 5 (polish + release):} docs/tests/CI complete, tagged release, devlog PDF.
+\end{itemize}
+
+\section{Risks and Mitigations}
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{Unstable correlation estimates:} mitigate via feature filtering, robust preprocessing, and sensitivity checks over $\tau$.
+  \item \textbf{Overfitting in trees:} mitigate via pruning and cross-validation.
+  \item \textbf{Low signal for failures:} mitigate via community aggregation (dimensionality reduction) and PR-AUC focused evaluation.
+  \item \textbf{Time constraints:} keep Random Forest and dashboard as optional stretch goals.
+\end{itemize}
+
+\section{Data Availability}
+SECOM dataset (UCI Machine Learning Repository): \url{https://archive.ics.uci.edu/ml/datasets/SECOM}
+
+\end{document}

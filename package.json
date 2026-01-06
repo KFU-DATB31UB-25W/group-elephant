@@ -1,0 +1,11 @@
+{
+  "name": "group-elephant",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "lint": "echo \"(placeholder) add lint scripts per package\"",
+    "test": "echo \"(placeholder) add test scripts per package\""
+  }
+}
+
+
