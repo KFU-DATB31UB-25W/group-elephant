@@ -1,0 +1,91 @@
+{
+  "config": {
+    "csv_gz": false,
+    "drop_constant_features": true,
+    "dtype": "float32",
+    "impute_strategy": "median",
+    "max_missing_fraction": 0.6,
+    "scale": true
+  },
+  "input": {
+    "data_member": "secom.data",
+    "data_member_sha256": "20f0e7ee434f7dcbae0eea9ffff009a2b57f42d6b0dc9a5bd4f00782c0a3374c",
+    "labels_member": "secom_labels.data",
+    "labels_member_sha256": "126884cf453705c9e61a903fe906f0665a3b45ce3639e621edc5c93c89627e03",
+    "mode": "zip",
+    "n_features_raw": 590,
+    "n_rows": 1567,
+    "zip_path": "secom.zip",
+    "zip_sha256": "eea568baf3c2229096d7d294cf0b096b5502bd96d92c0b80a65b84714059be8e"
+  },
+  "output": {
+    "X_dtype": "float32",
+    "label_values": [
+      -1,
+      1
+    ],
+    "missing_after": 0.0,
+    "n_features": 450,
+    "n_rows": 1567,
+    "y_dtype": "int64"
+  },
+  "steps": {
+    "drop_constant_features": {
+      "dropped": 116,
+      "enabled": true,
+      "n_features_after": 450
+    },
+    "drop_high_missing": {
+      "dropped": 24,
+      "max_missing_fraction": 0.6,
+      "n_features_after": 566
+    },
+    "impute": {
+      "impute_values_preview": [
+        3011.49,
+        2499.4049999999997,
+        2201.0667,
+        1285.2144,
+        1.3168,
+        100.0,
+        101.5122,
+        0.1224,
+        1.4616,
+        -0.0013
+      ],
+      "strategy": "median"
+    },
+    "standardize": {
+      "enabled": true,
+      "mean_preview": [
+        3014.4415507338863,
+        2495.8661104020425,
+        2200.5519580089344,
+        1395.383474090619,
+        4.171280536056158,
+        101.11647562220804,
+        0.12182482450542437,
+        1.4628600510529675,
+        -0.0008416081684747925,
+        0.00014607530312699425
+      ],
+      "std_preview": [
+        73.45739139763658,
+        80.202540082299,
+        29.371596737529607,
+        439.69696372048253,
+        56.08581655500326,
+        6.207403065764356,
+        0.008932785397781593,
+        0.07382580438595218,
+        0.015101721611357437,
+        0.00929320086060528
+      ]
+    }
+  },
+  "versions": {
+    "numpy": "2.4.1",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "python": "3.11.5 | packaged by Anaconda, Inc. | (main, Sep 11 2023, 13:26:23) [MSC v.1916 64 bit (AMD64)]"
+  }
+}
